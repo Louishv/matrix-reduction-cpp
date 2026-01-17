@@ -1,0 +1,264 @@
+#include <iostream>
+#include <string>
+#include <limits>
+#include <vector>
+#include <iomanip>
+
+using namespace std;
+
+const double EPS = 1e-10;
+
+bool is_zero(double x) {
+    return fabs(x) < EPS;
+}
+
+void get_mxn(int& rows, int& cols);
+void get_values(int rows, int cols, vector <vector<double>>& matrix);
+void print_matrix(const vector <vector<double>>& matrix, int rows, int cols);
+void row_echelon(int rows, int cols, vector <vector<double>>& matrix);
+void switch_row(vector <vector<double>>& matrix, int i, int j, int rows, int cols, int pivot_row);
+void row_std(vector <vector<double>>& matrix, int rows, int cols, int j, int i, int pivot_row);
+void row_subt(vector <vector<double>>& matrix, int i, int j, int rows, int cols, int pivot_row);
+void row_reduce(int& j,int& i, int cols, vector <vector<double>>& matrix, int rows);
+void old_matrix(int rows, int cols, vector <vector<double>>& matrix, vector <vector<double>>& matrix_old);
+
+
+int main() {
+    cout << setprecision(3);
+   int rows, cols, enter, j, i;
+
+   cout << endl << endl << endl;
+   cout << "Dette program beregner en matrice og reducere til række-reduceret echelonform." << endl << endl;
+
+   get_mxn(rows, cols);
+
+   vector <vector<double>> matrix(rows, vector<double>(cols, 0));
+    vector <vector<double>> matrix_old(rows, vector<double>(cols, 0));
+
+   get_values(rows, cols,matrix);
+    old_matrix(rows, cols, matrix, matrix_old);
+
+   cout << "Din matrice er: " << endl;
+   print_matrix(matrix, rows, cols);
+
+    cin.ignore();
+   cout << "Tryk ENTER for at beregne...";
+   cin.get();
+
+   row_echelon(rows, cols, matrix);
+
+   row_reduce(j,i, cols, matrix, rows);
+
+    cout << endl << endl << endl << "Din matrice: " << endl;
+    print_matrix(matrix_old, rows, cols);
+    cout << "Rækkereduceret på echelonform er: " << endl;
+    print_matrix(matrix, rows, cols);
+
+   return 0;
+}
+
+bool isNumber(const string& s) {
+    if (s.empty()) return false;
+
+    size_t i = 0;
+    bool decimalPointSeen = false;
+
+    if (s[i] == '-') {
+        i++;
+        if (i == s.size()) return false;
+    }
+
+    for (; i < s.size(); i++) {
+        char c = s[i];
+        if (isdigit(c)) continue;
+        else if (c == '.' && !decimalPointSeen) {
+            decimalPointSeen = true;
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool isPositiveInteger(const string& s) {
+   if (s.empty()) return false;
+   for (char c : s) {
+       if (!isdigit(c)) return false;
+   }
+   return true;
+}
+
+void get_mxn(int& rows, int& cols) {
+
+   string input;
+
+   while (true) {
+       cout << "Hvor mange rækker har din matrice?: ";
+       cin >> input;
+
+
+       if (isPositiveInteger(input)) {
+           rows = stoi(input);
+           if (rows > 0) break;
+       }
+
+
+       cout << "Ugyldigt input - indtast et tal.\n";
+       cin.clear();
+       cin.ignore(numeric_limits<streamsize>::max(), '\n');
+   }
+
+   cout << endl;
+
+   while (true) {
+       cout << "Hvor mange kolonner har din matrice?: ";
+       cin >> input;
+
+
+       if (isPositiveInteger(input)) {
+           cols = stoi(input);
+           if (cols > 0) break;
+       }
+
+
+       cout << "Ugyldigt input - indtast et tal.\n";
+       cin.clear();
+       cin.ignore(numeric_limits<streamsize>::max(), '\n');
+   }
+    cout << endl << endl;
+}
+
+void get_values(int rows, int cols, vector <vector<double>>& matrix) {
+    double mat_input = 0;
+   for (int i = 0; i < rows; ++i) {
+       cout << "Indtast værdierne for række " << i + 1 << ":" << endl;
+       for (int j = 0; j < cols; ++j) {
+           while (true) {
+               string input;
+               cout << "Række " << i + 1 << ", x" << j + 1 << ": ";
+               cin >> input;
+
+               if (isNumber(input)) {
+                   mat_input = stod(input);
+                   break;
+               }
+
+               cout << endl << endl << "Ugyldigt input - indtast et tal.\n";
+               cin.clear();
+               cin.ignore(numeric_limits<streamsize>::max(), '\n');
+           }
+           matrix[i][j] = mat_input;
+       }
+       cout << endl << endl;
+   }
+}
+
+void print_matrix(const vector <vector<double>>& matrix, const int rows, const int cols) {
+   for (int i = 0; i < rows; ++i) {
+       for (int j = 0; j < cols; ++j) {
+           cout << setw(8) << (is_zero(matrix[i][j]) ? 0.0 : matrix[i][j]) << " ";
+       }
+       cout << endl;
+   }
+    cout << endl << endl;
+}
+
+void row_echelon(int rows, int cols, vector<vector<double>>& matrix) {
+    int i_off = 0;
+
+    for (int j = 0; j < cols; j++) {
+        int i = j - i_off;
+
+        if (i >= rows) break;
+
+
+        while (i < rows && is_zero(matrix[i][j])) {
+             i++;
+        }
+
+        if (i >= rows) {
+             i_off++;
+         continue;
+        }
+
+        int pivot_row = j - i_off;
+        switch_row(matrix, i, j, rows, cols, pivot_row);
+        print_matrix(matrix, rows, cols);
+
+        row_std(matrix, rows, cols, j, i, pivot_row);
+        print_matrix(matrix, rows, cols);
+
+        row_subt(matrix, i, j, rows, cols, pivot_row);
+        print_matrix(matrix, rows, cols);
+    }
+}
+
+void switch_row(vector <vector<double>>& matrix, int i, int j, int rows, int cols, int pivot_row) {
+    vector <double> target_temp(cols, 0), copy_temp(cols,0);
+    for (int sr_j = j; sr_j < cols; sr_j++) {
+        target_temp[sr_j] = matrix [pivot_row][sr_j];
+    }
+
+    for (int sr_j = j; sr_j < cols; sr_j++) {
+        copy_temp[sr_j] = matrix [i][sr_j];
+    }
+
+    for (int sr_j = j; sr_j < cols; sr_j++) {
+        matrix [pivot_row][sr_j] = copy_temp[sr_j];
+    }
+
+    for (int sr_j = j; sr_j < cols; sr_j++) {
+        matrix [i][sr_j] = target_temp[sr_j];
+    }
+}
+
+void row_std(vector <vector<double>>& matrix, const int rows, const int cols, const int j, const int i, int pivot_row) {
+    if (!is_zero(matrix[pivot_row][j])) {
+    double fact_std = matrix[pivot_row][j];
+    for (int rn_j = j; rn_j < cols; rn_j++) {
+        matrix[pivot_row][rn_j] /= fact_std;
+    }
+}
+}
+
+void row_subt(vector <vector<double>>& matrix, const int i, const int j, const int rows, const int cols, int pivot_row) {
+    if (!is_zero(matrix[pivot_row][j])) {
+    for (int rs_i = pivot_row + 1; rs_i < rows; rs_i++) {
+        if (is_zero(matrix[rs_i][j])) continue;
+        double fact_sub = matrix[rs_i][j] / matrix[pivot_row][j];
+        for (int rs_j = j; rs_j < cols; rs_j++) {
+            matrix[rs_i][rs_j] -= fact_sub * matrix[pivot_row][rs_j];
+        }
+    }
+}
+}
+
+void row_reduce(int& j, int& i, int const cols, vector<vector<double>>& matrix, int const rows) {
+    for (i = rows - 1; i >= 0; i--) {
+        int pivot_col = -1;
+        for (int c = 0; c < cols; c++) {
+            if (!is_zero(matrix[i][c])) {
+                pivot_col = c;
+             break;
+            }
+        }
+        if (pivot_col == -1) continue;
+
+        for (int r = i - 1; r >= 0; r--) {
+            double factor = matrix[r][pivot_col];
+            for (int c = pivot_col; c < cols; c++) {
+                matrix[r][c] -= factor * matrix[i][c];
+            }
+        }
+        print_matrix(matrix, rows, cols);
+    }
+}
+
+void old_matrix(int rows, int cols, vector <vector<double>>& matrix, vector <vector<double>>& matrix_old) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            matrix_old[i][j] = matrix[i][j];
+        }
+    }
+}
